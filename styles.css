@@ -220,30 +220,39 @@ body {
 .logo-wrap {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .logo-icon {
-  font-size: 52px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   animation: pulse-logo 3s ease-in-out infinite;
-  filter: drop-shadow(0 0 20px rgba(212,255,0,0.8));
+  filter: drop-shadow(0 0 14px rgba(212,255,0,0.6));
+  flex-shrink: 0;
+}
+.logo-icon svg {
+  width: 34px;
+  height: 34px;
 }
 
 @keyframes pulse-logo {
-  0%,100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(212,255,0,0.75)); }
-  50%      { transform: scale(1.08); filter: drop-shadow(0 0 38px rgba(212,255,0,1)) drop-shadow(0 0 60px rgba(255,184,48,0.5)); }
+  0%,100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(212,255,0,0.6)); }
+  50%      { transform: scale(1.05); filter: drop-shadow(0 0 24px rgba(212,255,0,0.85)) drop-shadow(0 0 35px rgba(255,184,48,0.4)); }
 }
 
 .logo-text {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 52px;
+  font-size: 38px;
   font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
 }
 
 .tagline {
-  font-size: 18px;
+  font-size: 16px;
   color: var(--text-secondary);
   line-height: 1.6;
   max-width: 480px;
@@ -252,7 +261,7 @@ body {
 .feature-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
 }
 
@@ -260,12 +269,21 @@ body {
   background: var(--glass);
   border: 1px solid var(--glass-border);
   border-radius: 50px;
-  padding: 8px 18px;
-  font-size: 13px;
+  padding: 6px 14px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   backdrop-filter: blur(10px);
   transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pill-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  opacity: 0.9;
 }
 .pill:hover {
   border-color: var(--accent);
@@ -464,7 +482,16 @@ body {
   background: rgba(212,255,0,0.06);
   box-shadow: var(--glow-lemon);
 }
-.drop-icon { font-size: 40px; }
+.drop-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+.drop-icon svg {
+  width: 32px;
+  height: 32px;
+}
 .drop-text { font-size: 16px; font-weight: 600; }
 .drop-sub { font-size: 13px; color: var(--text-muted); }
 
