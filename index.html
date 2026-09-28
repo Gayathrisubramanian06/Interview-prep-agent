@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrepAI - Smart Interview Practice Bot</title>
+  <meta name="description" content="AI-powered interview practice bot with domain-specific questions, company prep, resume-based adaptive interviews, and real-time feedback." />
+  <meta name="keywords" content="interview practice, AI interview bot, technical interview, HR questions, resume-based questions, adaptive difficulty" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Animated background canvas -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- ==================== ONBOARDING FLOW ==================== -->
+  <div id="onboarding" class="screen active">
+
+    <!-- Step 1: Welcome -->
+    <section id="step-welcome" class="onboard-step active">
+      <div class="welcome-container">
+        <div class="logo-wrap">
+          <div class="logo-icon">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="10" width="28" height="22" rx="5" stroke="#d4ff00" stroke-width="2.2" fill="none"/>
+              <circle cx="14" cy="20" r="2.5" fill="#d4ff00"/>
+              <circle cx="26" cy="20" r="2.5" fill="#d4ff00"/>
+              <path d="M14 26 Q20 30 26 26" stroke="#d4ff00" stroke-width="2" stroke-linecap="round" fill="none"/>
+              <path d="M20 10 L20 6" stroke="#d4ff00" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="20" cy="4.5" r="1.5" fill="#d4ff00"/>
+              <path d="M6 22 L2 22" stroke="#d4ff00" stroke-width="2" stroke-linecap="round"/>
+              <path d="M38 22 L34 22" stroke="#d4ff00" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h1 class="logo-text">Prep<span class="accent">AI</span></h1>
+        </div>
+        <p class="tagline">Your personal AI interview coach - adaptive, insightful, unstoppable.</p>
+        <div class="feature-pills">
+          <span class="pill">
+            <svg class="pill-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Domain-based Q&amp;A
+          </span>
+          <span class="pill">
+            <svg class="pill-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Company Prep
+          </span>
+          <span class="pill">
+            <svg class="pill-icon" viewBox="0 0 16 16" fill="none"><path d="M4 2h6l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M10 2v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
+            Resume Analysis
+          </span>
+          <span class="pill">
+            <svg class="pill-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.5 4.5H14l-3.7 2.7 1.4 4.3L8 11l-3.7 2.5 1.4-4.3L2 6.5h4.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            Adaptive Difficulty
+          </span>
+        </div>
+        <button class="btn-primary btn-glow" id="btn-start" onclick="goToStep('step-domain')">
+          Start Interview Prep <span class="btn-arrow">&#8594;</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Step 2: Domain Selection -->
+    <section id="step-domain" class="onboard-step">
+      <div class="step-header">
+        <button class="btn-back" onclick="goToStep('step-welcome')">&larr; Back</button>
+        <div class="step-indicator">
+          <span class="step-dot active"></span>
+          <span class="step-dot"></span>
+          <span class="step-dot"></span>
+        </div>
+      </div>
+      <h2 class="step-title">Choose Your <span class="accent">Domain</span></h2>
+      <p class="step-subtitle">We'll tailor questions to your field</p>
+      <div class="domain-grid" id="domain-grid">
+        <!-- Populated by JS -->
+      </div>
+      <button class="btn-primary" id="btn-domain-next" onclick="goToStep('step-company')" disabled>
+        Continue <span class="btn-arrow">&#8594;</span>
+      </button>
+    </section>
+
+    <!-- Step 3: Company Selection -->
+    <section id="step-company" class="onboard-step">
+      <div class="step-header">
+        <button class="btn-back" onclick="goToStep('step-domain')">&larr; Back</button>
+        <div class="step-indicator">
+          <span class="step-dot done"></span>
+          <span class="step-dot active"></span>
+          <span class="step-dot"></span>
+        </div>
+      </div>
+      <h2 class="step-title">Target <span class="accent">Company</span></h2>
+      <p class="step-subtitle">Get questions aligned with company culture &amp; style (optional)</p>
+      <div class="company-grid" id="company-grid">
+        <!-- Populated by JS -->
+      </div>
+      <div class="company-search-wrap">
+        <input type="text" id="company-search" placeholder="Search other company..." oninput="searchCompany(this.value)" autocomplete="off" />
+      </div>
+      <button class="btn-primary" onclick="goToStep('step-resume')">
+        Continue <span class="btn-arrow">&#8594;</span>
+      </button>
+      <button class="btn-ghost" onclick="goToStep('step-resume')">Skip for now</button>
+    </section>
+
+    <!-- Step 4: Resume Upload -->
+    <section id="step-resume" class="onboard-step">
+      <div class="step-header">
+        <button class="btn-back" onclick="goToStep('step-company')">&larr; Back</button>
+        <div class="step-indicator">
+          <span class="step-dot done"></span>
+          <span class="step-dot done"></span>
+          <span class="step-dot active"></span>
+        </div>
+      </div>
+      <h2 class="step-title">Upload Your <span class="accent">Resume</span></h2>
+      <p class="step-subtitle">Upload your PDF/DOCX or paste text to generate personalized, resume-targeted questions</p>
+      
+      <div class="resume-drop-zone" id="resume-drop-zone"
+           ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)"
+           onclick="document.getElementById('resume-file-input').click()">
+        <div class="drop-icon">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 6h18l10 10v26a2 2 0 01-2 2H12a2 2 0 01-2-2V8a2 2 0 012-2z" stroke="#d4ff00" stroke-width="2" fill="none"/>
+            <path d="M30 6v10h10" stroke="#d4ff00" stroke-width="2"/>
+            <path d="M24 22v12M20 28l4-4 4 4" stroke="#d4ff00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M18 38h12" stroke="#d4ff00" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p class="drop-text" id="drop-main-text">Drag &amp; drop your resume here, or click to browse</p>
+        <p class="drop-sub" id="drop-sub-text">Supports PDF, DOCX, TXT, MD</p>
+        <span class="btn-upload" onclick="event.stopPropagation(); document.getElementById('resume-file-input').click()">Browse File</span>
+        <input type="file" id="resume-file-input" accept=".pdf,.docx,.doc,.txt,.md,.rtf" onchange="handleFileSelect(event)" style="display:none;" />
+      </div>
+
+      <div class="sample-resumes-wrap">
+        <span class="sample-label">Or load a sample resume:</span>
+        <div class="sample-buttons">
+          <button type="button" class="btn-sample" onclick="loadSampleResume('fullstack')">Full Stack Dev</button>
+          <button type="button" class="btn-sample" onclick="loadSampleResume('datascience')">Data Scientist</button>
+          <button type="button" class="btn-sample" onclick="loadSampleResume('frontend')">Frontend Engineer</button>
+        </div>
+      </div>
+
+      <div class="or-divider"><span>or edit / paste text</span></div>
+      <textarea id="resume-text" class="resume-textarea" rows="6"
+        placeholder="Paste your resume text here...&#10;&#10;e.g. Skills: React, Node.js, Python, PostgreSQL, AWS&#10;Experience: Software Engineer at Acme Corp (2 yrs)...&#10;Projects: Real-time Analytics Dashboard using WebSockets..."
+        oninput="handleResumeTextInput(this.value)"></textarea>
+      
+      <div id="resume-preview" class="resume-preview hidden"></div>
+      
+      <div class="resume-actions">
+        <button class="btn-primary" id="btn-start-interview" onclick="startInterview()">
+          Start Interview With Resume <span class="btn-arrow">&#8594;</span>
+        </button>
+        <button class="btn-ghost" onclick="skipResume()">Continue without resume</button>
+      </div>
+    </section>
+
+  </div><!-- /onboarding -->
+
+
+  <!-- ==================== INTERVIEW SCREEN ==================== -->
+  <div id="interview-screen" class="screen hidden">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon-sm">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="14" rx="3" stroke="#d4ff00" stroke-width="1.8"/><circle cx="8.5" cy="12" r="1.5" fill="#d4ff00"/><circle cx="15.5" cy="12" r="1.5" fill="#d4ff00"/><path d="M8.5 16q3.5 2.5 7 0" stroke="#d4ff00" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M12 6V3" stroke="#d4ff00" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </span>
+        <span class="logo-text-sm">Prep<span class="accent">AI</span></span>
+      </div>
+
+      <div class="sidebar-section">
+        <label class="sidebar-label">Domain</label>
+        <div class="sidebar-badge" id="sb-domain">-</div>
+      </div>
+
+      <div class="sidebar-section">
+        <label class="sidebar-label">Company</label>
+        <div class="sidebar-badge" id="sb-company">General</div>
+      </div>
+
+      <div class="sidebar-section">
+        <label class="sidebar-label">Difficulty</label>
+        <div class="difficulty-display" id="sb-difficulty">
+          <span class="diff-bar"><span class="diff-fill" id="diff-fill-bar"></span></span>
+          <span id="diff-label">Easy</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <label class="sidebar-label">Session Stats</label>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-num" id="stat-asked">0</span>
+            <span class="stat-label">Asked</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num accent" id="stat-score">0%</span>
+            <span class="stat-label">Score</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <label class="sidebar-label">Mode</label>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="mode-btn-tech" onclick="setMode('technical')">Technical</button>
+          <button class="mode-btn" id="mode-btn-hr" onclick="setMode('hr')">HR</button>
+          <button class="mode-btn" id="mode-btn-mix" onclick="setMode('mixed')">Mixed</button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <label class="sidebar-label">Question Types</label>
+        <div class="type-toggles">
+          <label class="toggle-item">
+            <input type="checkbox" id="chk-resume" checked onchange="updateSettings()" />
+            <span class="toggle-slider"></span>
+            <span>Resume-based</span>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" id="chk-company" onchange="updateSettings()" />
+            <span class="toggle-slider"></span>
+            <span>Company-specific</span>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" id="chk-adaptive" checked onchange="updateSettings()" />
+            <span class="toggle-slider"></span>
+            <span>Adaptive difficulty</span>
+          </label>
+        </div>
+      </div>
+
+      <button class="btn-sidebar-action" onclick="endSession()">
+        <svg class="btn-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M4 9l2.5-3L9 8l2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        End &amp; View Report
+      </button>
+      <button class="btn-sidebar-secondary" onclick="resetToHome()">
+        <svg class="btn-icon" viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 103 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3 5v3H6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        New Session
+      </button>
+    </aside>
+
+    <!-- Main chat area -->
+    <main class="chat-area">
+      <div class="chat-header">
+        <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+          <svg viewBox="0 0 20 20" fill="none" width="18" height="18"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <div class="chat-header-info">
+          <h2 id="chat-title">Mock Interview</h2>
+          <span class="chat-subtitle" id="chat-subtitle">Preparing your session...</span>
+        </div>
+        <div class="header-right">
+          <div class="diff-badge" id="diff-badge">Easy</div>
+          <div class="timer-display" id="timer-display">00:00</div>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chat-messages">
+        <!-- Messages rendered by JS -->
+      </div>
+
+      <div class="typing-indicator hidden" id="typing-indicator">
+        <span></span><span></span><span></span>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="input-row">
+          <textarea id="user-input" class="user-input" rows="1"
+            placeholder="Type your answer here..."
+            onkeydown="handleInputKey(event)"
+            oninput="autoResize(this)"></textarea>
+          <button class="btn-submit" id="btn-submit" onclick="submitAnswer()" aria-label="Submit Answer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+        <div class="input-hints">
+          <span id="hint-skip" class="hint-btn" onclick="skipQuestion()">
+            <svg class="hint-icon" viewBox="0 0 16 16" fill="none"><path d="M3 4l6 4-6 4V4z" fill="currentColor"/><path d="M11 4v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Skip
+          </span>
+          <span id="hint-hint" class="hint-btn" onclick="getHint()">
+            <svg class="hint-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="7" r="4" stroke="currentColor" stroke-width="1.4"/><path d="M8 13v-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Hint
+          </span>
+          <span id="hint-rephrase" class="hint-btn" onclick="rephraseQuestion()">
+            <svg class="hint-icon" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 0110.4-4M14 8a6 6 0 01-10.4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 4.5l.4 2.5H10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Rephrase
+          </span>
+          <span class="input-tip">Press <kbd>Ctrl+Enter</kbd> to submit</span>
+        </div>
+      </div>
+    </main>
+
+  </div><!-- /interview-screen -->
+
+
+  <!-- ==================== REPORT SCREEN ==================== -->
+  <div id="report-screen" class="screen hidden">
+    <div class="report-container">
+      <div class="report-header">
+        <div class="report-logo">Prep<span class="accent">AI</span></div>
+        <h2 class="report-title">Session Report</h2>
+      </div>
+      <div class="report-summary" id="report-summary">
+        <!-- Populated by JS -->
+      </div>
+      <div class="report-chart-wrap">
+        <canvas id="report-chart" width="400" height="200"></canvas>
+      </div>
+      <div class="report-qa" id="report-qa">
+        <!-- Q&A review populated by JS -->
+      </div>
+      <div class="report-actions">
+        <button class="btn-primary" onclick="resetToHome()">New Session</button>
+        <button class="btn-ghost" onclick="printReport()">Print Report</button>
+      </div>
+    </div>
+  </div><!-- /report-screen -->
+
+  <!-- Client-side PDF and DOCX parsers -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
