@@ -902,6 +902,19 @@ function generateResumeQuestions(domain) {
     difficulty: 'medium'
   });
 
+  // Fallback dynamic question generator when offline
+  if (questions.length === 0) {
+    const targetDomain = domain ? domain.name : 'Software Engineering';
+    questions.push({
+      text: `Can you describe your experience and technical background in ${targetDomain}?`,
+      hint: `Mention key frameworks, projects, and systems you have built.`,
+      type: 'technical',
+      source: 'domain',
+      topic: `${targetDomain} Overview`,
+      difficulty: 'easy'
+    });
+  }
+
   return questions;
 }
 
@@ -913,73 +926,33 @@ function buildQuestionQueue() {
 
   const hasResume = state.useResume && state.resumeSkills && state.resumeSkills.length > 0;
 
-  // 1. Add Resume-based questions FIRST if resume exists
-  if (hasResume) {
-    const resumeQs = generateResumeQuestions(domain);
-    // Filter matching current difficulty if possible, or all
-    const matchingDiff = resumeQs.filter(q => q.difficulty === diff);
-    const otherDiff = resumeQs.filter(q => q.difficulty !== diff);
-    
-    // Put difficulty-matching resume questions first
-    matchingDiff.forEach(q => queue.push(q));
-    otherDiff.forEach(q => queue.push(q));
-  }
+  // Add Resume-based & role template questions
+  const resumeQs = generateResumeQuestions(domain);
+  const matchingDiff = resumeQs.filter(q => q.difficulty === diff);
+  const otherDiff = resumeQs.filter(q => q.difficulty !== diff);
+  
+  matchingDiff.forEach(q => queue.push(q));
+  otherDiff.forEach(q => queue.push(q));
 
-  // 2. Add domain technical questions
-  if (state.mode === 'technical' || state.mode === 'mixed') {
+  // Domain technical questions (if any exist in domain)
+  if (domain && domain.technical) {
     const techQs = domain.technical[diff] || domain.technical.easy || [];
     techQs.forEach(q => {
       queue.push({ text: q.q, hint: q.hint, type: 'technical', source: 'domain', topic: domain.name, difficulty: diff });
     });
   }
 
-  // 3. Add HR questions
-  if (state.mode === 'hr' || state.mode === 'mixed') {
+  // HR questions (if any exist in domain)
+  if (domain && domain.hr) {
     domain.hr.forEach(q => queue.push({ text: q, hint: null, type: 'hr', source: 'domain', topic: 'Behavioral' }));
-    GENERAL_HR.forEach(q => queue.push({ text: q, hint: null, type: 'hr', source: 'general', topic: 'HR' }));
   }
 
-  // 4. Add company questions
-  if (state.selectedCompany) {
-    const company = COMPANIES.find(c => c.id === state.selectedCompany);
-    if (company) {
-      company.questions.technical.forEach(q => queue.push({ text: q, hint: null, type: 'technical', source: 'company', topic: company.name }));
-      company.questions.hr.forEach(q => queue.push({ text: q, hint: null, type: 'hr', source: 'company', topic: company.name }));
-    }
+  // Prioritize queue
+  for (let i = queue.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [queue[i], queue[j]] = [queue[j], queue[i]];
   }
-
-  // Prioritize queue: If resume is provided, prioritize resume questions so they are answered first
-  if (hasResume) {
-    const resumeGroup = queue.filter(q => q.source === 'resume');
-    const nonResumeGroup = queue.filter(q => q.source !== 'resume');
-
-    // Shuffle within groups
-    for (let i = resumeGroup.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [resumeGroup[i], resumeGroup[j]] = [resumeGroup[j], resumeGroup[i]];
-    }
-    for (let i = nonResumeGroup.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [nonResumeGroup[i], nonResumeGroup[j]] = [nonResumeGroup[j], nonResumeGroup[i]];
-    }
-
-    // Interleave heavily favoring resume (2 resume questions for every 1 domain question)
-    const combined = [];
-    let rIdx = 0, nrIdx = 0;
-    while (rIdx < resumeGroup.length || nrIdx < nonResumeGroup.length) {
-      if (rIdx < resumeGroup.length) combined.push(resumeGroup[rIdx++]);
-      if (rIdx < resumeGroup.length) combined.push(resumeGroup[rIdx++]);
-      if (nrIdx < nonResumeGroup.length) combined.push(nonResumeGroup[nrIdx++]);
-    }
-    state.questionQueue = combined;
-  } else {
-    // Normal shuffle
-    for (let i = queue.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [queue[i], queue[j]] = [queue[j], queue[i]];
-    }
-    state.questionQueue = queue;
-  }
+  state.questionQueue = queue;
 }
 
 function getNextQuestion() {
@@ -990,13 +963,9 @@ function getNextQuestion() {
   if (state.mode === 'technical') typeFilter = q => q.type === 'technical';
   if (state.mode === 'hr') typeFilter = q => q.type === 'hr';
 
-  let sourceFilter = () => true;
-  if (!state.useResume) sourceFilter = q => q.source !== 'resume';
-
   const available = state.questionQueue.filter(q =>
     !state.askedQuestions.has(q.text) &&
-    typeFilter(q) &&
-    sourceFilter(q)
+    typeFilter(q)
   );
 
   if (available.length === 0) {
@@ -1004,15 +973,6 @@ function getNextQuestion() {
     return state.questionQueue.find(q => !state.askedQuestions.has(q.text)) || null;
   }
 
-  // If resume is present, prefer resume questions matching current difficulty
-  if (state.useResume && state.resumeSkills && state.resumeSkills.length > 0) {
-    const resumeMatch = available.find(q => q.source === 'resume' && (!q.difficulty || q.difficulty === diff));
-    if (resumeMatch) return resumeMatch;
-    const anyResume = available.find(q => q.source === 'resume');
-    if (anyResume) return anyResume;
-  }
-
-  // Otherwise return first available matching question
   return available[0];
 }
 
@@ -1049,23 +1009,18 @@ async function askNextQuestion() {
       } catch (err) {
         console.warn(`Groq question generation attempt ${attempt + 1} failed:`, err.message);
         if (attempt < MAX_RETRIES) {
-          // Brief delay before retry
           await new Promise(r => setTimeout(r, 800));
         }
       }
     }
 
-    // If all LLM retries failed, show error and fall back gracefully
     if (!q) {
-      console.error('All Groq LLM attempts failed. Falling back to static question bank for this question.');
-      // Build static queue on-demand only when LLM fails
-      if (state.questionQueue.length === 0) {
-        buildQuestionQueue();
-      }
+      if (state.questionQueue.length === 0) buildQuestionQueue();
       q = getNextQuestion();
     }
   } else {
-    // ===== OFFLINE MODE: Use static question bank =====
+    // ===== OFFLINE / FALLBACK MODE =====
+    if (state.questionQueue.length === 0) buildQuestionQueue();
     q = getNextQuestion();
   }
 
