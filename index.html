@@ -19,6 +19,21 @@
   <!-- ==================== ONBOARDING FLOW ==================== -->
   <div id="onboarding" class="screen active">
 
+    <!-- Top Global Header / API Status -->
+    <header class="app-topbar">
+      <div class="topbar-left">
+        <span class="live-dot pulse"></span>
+        <span class="topbar-tag">AI Interview Engine</span>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-api-settings" onclick="openApiModal()" id="btn-api-modal-trigger">
+          <span class="api-status-indicator" id="top-api-status-dot"></span>
+          <span id="top-api-status-text">Groq LLM: Offline (Static Bank)</span>
+          <svg viewBox="0 0 16 16" fill="none" class="api-gear-icon"><path d="M6.5 1h3l.4 1.8 1.4.6 1.6-1 2.1 2.1-1 1.6.6 1.4 1.8.4v3l-1.8.4-.6 1.4 1 1.6-2.1 2.1-1.6-1-1.4.6-.4 1.8h-3l-.4-1.8-1.4-.6-1.6 1-2.1-2.1 1-1.6-.6-1.4-1.8-.4v-3l1.8-.4.6-1.4-1-1.6 2.1-2.1 1.6 1 1.4-.6L6.5 1z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/></svg>
+        </button>
+      </div>
+    </header>
+
     <!-- Step 1: Welcome -->
     <section id="step-welcome" class="onboard-step active">
       <div class="welcome-container">
@@ -37,19 +52,19 @@
           </div>
           <h1 class="logo-text">Prep<span class="accent">AI</span></h1>
         </div>
-        <p class="tagline">Your personal AI interview coach - adaptive, insightful, unstoppable.</p>
+        <p class="tagline">Your personal AI interview coach - dynamic, domain &amp; resume-powered, adaptive.</p>
         <div class="feature-pills">
           <span class="pill">
             <svg class="pill-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            Domain-based Q&amp;A
+            LLM-Powered Q&amp;A
           </span>
           <span class="pill">
             <svg class="pill-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            Company Prep
+            Company Specific
           </span>
           <span class="pill">
             <svg class="pill-icon" viewBox="0 0 16 16" fill="none"><path d="M4 2h6l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M10 2v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
-            Resume Analysis
+            Resume Tailored
           </span>
           <span class="pill">
             <svg class="pill-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.5 4.5H14l-3.7 2.7 1.4 4.3L8 11l-3.7 2.5 1.4-4.3L2 6.5h4.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
@@ -237,6 +252,17 @@
         </div>
       </div>
 
+      <div class="sidebar-section">
+        <label class="sidebar-label">AI Engine</label>
+        <div class="sidebar-llm-card" onclick="openApiModal()" style="cursor:pointer;" title="Click to manage Groq LLM settings">
+          <div class="llm-card-header">
+            <span class="api-status-indicator" id="sb-api-status-dot"></span>
+            <span class="llm-name" id="sb-api-status-text">Groq LLaMA 3.3</span>
+          </div>
+          <span class="llm-model-tag" id="sb-api-model-tag">Offline Mode</span>
+        </div>
+      </div>
+
       <button class="btn-sidebar-action" onclick="endSession()">
         <svg class="btn-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M4 9l2.5-3L9 8l2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         End &amp; View Report
@@ -328,10 +354,63 @@
     </div>
   </div><!-- /report-screen -->
 
+
+  <!-- ==================== GROQ API SETTINGS MODAL ==================== -->
+  <div id="api-modal-backdrop" class="modal-backdrop hidden" onclick="closeApiModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">⚡</span>
+          <div>
+            <h3 class="modal-title">Groq LLM Configuration</h3>
+            <p class="modal-subtitle">Power non-hardcoded, resume &amp; company-tailored questions in real-time</p>
+          </div>
+        </div>
+        <button class="btn-modal-close" onclick="closeApiModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="api-guide-banner">
+          <span class="banner-badge">Fast &amp; Free</span>
+          <span>Groq powers ultra-fast inference for Llama 3.3. Get your free key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">console.groq.com/keys</a>.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-groq-key">Groq API Key</label>
+          <div class="key-input-wrap">
+            <input type="password" id="input-groq-key" class="form-input" placeholder="gsk_..." autocomplete="off" />
+            <button type="button" class="btn-toggle-vis" onclick="toggleKeyVisibility()" title="Show/Hide Key">👁️</button>
+          </div>
+          <span class="form-hint">Stored locally in your browser (localStorage). You can also set it in <code>config.js</code>.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="select-groq-model">LLM Model</label>
+          <select id="select-groq-model" class="form-select">
+            <option value="llama-3.3-70b-versatile">LLaMA 3.3 70B Versatile (Recommended - Deep &amp; Accurate)</option>
+            <option value="llama-3.1-8b-instant">LLaMA 3.1 8B Instant (Ultra Fast)</option>
+            <option value="mixtral-8x7b-32768">Mixtral 8x7B (High Context)</option>
+          </select>
+        </div>
+
+        <div id="api-test-status" class="api-test-status hidden"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" onclick="clearApiKey()">Remove Key</button>
+        <button type="button" class="btn-secondary" id="btn-test-key" onclick="testApiKey()">Test Connection</button>
+        <button type="button" class="btn-primary" onclick="saveApiKey()">Save &amp; Enable LLM</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Client-side PDF and DOCX parsers -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="api-key.js"></script>
+  <script src="config.js"></script>
   <script src="data.js"></script>
+  <script src="groq.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

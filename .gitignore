@@ -1,0 +1,12 @@
+# Private API keys and environment files
+api-key.js
+secrets.js
+.env
+.env.local
+*.local.js
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

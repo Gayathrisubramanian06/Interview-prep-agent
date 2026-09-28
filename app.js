@@ -2,6 +2,124 @@
    PrepAI – Main Application Logic
    ============================================= */
 
+/* -------- Groq API Key & Settings Management -------- */
+function updateApiStatusUI() {
+  const hasKey = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
+  const topDot = document.getElementById('top-api-status-dot');
+  const topText = document.getElementById('top-api-status-text');
+  const sbDot = document.getElementById('sb-api-status-dot');
+  const sbText = document.getElementById('sb-api-status-text');
+  const sbModelTag = document.getElementById('sb-api-model-tag');
+
+  const modelName = (typeof CONFIG !== 'undefined' && CONFIG.GROQ_MODEL) ? CONFIG.GROQ_MODEL.split('-')[0].toUpperCase() + ' 3.3' : 'LLaMA 3.3';
+
+  if (hasKey) {
+    if (topDot) topDot.className = 'api-status-indicator connected';
+    if (topText) topText.textContent = `⚡ Groq LLM: Active`;
+    if (sbDot) sbDot.className = 'api-status-indicator connected';
+    if (sbText) sbText.textContent = 'Groq LLM Active';
+    if (sbModelTag) sbModelTag.textContent = (typeof CONFIG !== 'undefined' && CONFIG.GROQ_MODEL) ? CONFIG.GROQ_MODEL : 'llama-3.3-70b';
+  } else {
+    if (topDot) topDot.className = 'api-status-indicator offline';
+    if (topText) topText.textContent = 'Groq LLM: Offline (Click to setup)';
+    if (sbDot) sbDot.className = 'api-status-indicator offline';
+    if (sbText) sbText.textContent = 'Offline Engine';
+    if (sbModelTag) sbModelTag.textContent = 'Static Question Bank';
+  }
+}
+
+function openApiModal() {
+  const modal = document.getElementById('api-modal-backdrop');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const keyInput = document.getElementById('input-groq-key');
+  const modelSelect = document.getElementById('select-groq-model');
+  const statusDiv = document.getElementById('api-test-status');
+
+  if (statusDiv) statusDiv.classList.add('hidden');
+  if (keyInput) {
+    keyInput.value = (typeof GroqService !== 'undefined') ? GroqService.getApiKey() : '';
+  }
+  if (modelSelect && typeof CONFIG !== 'undefined') {
+    modelSelect.value = CONFIG.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  }
+}
+
+function closeApiModal(e) {
+  if (e && e.target !== e.currentTarget) return;
+  const modal = document.getElementById('api-modal-backdrop');
+  if (modal) modal.classList.add('hidden');
+}
+
+function toggleKeyVisibility() {
+  const input = document.getElementById('input-groq-key');
+  if (!input) return;
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function testApiKey() {
+  const input = document.getElementById('input-groq-key');
+  const statusDiv = document.getElementById('api-test-status');
+  const key = input.value.trim();
+
+  if (!key) {
+    statusDiv.className = 'api-test-status error';
+    statusDiv.textContent = '⚠️ Please enter a Groq API Key first.';
+    statusDiv.classList.remove('hidden');
+    return;
+  }
+
+  statusDiv.className = 'api-test-status testing';
+  statusDiv.textContent = '⏳ Testing connection to Groq API...';
+  statusDiv.classList.remove('hidden');
+
+  try {
+    await GroqService.testKey(key);
+    statusDiv.className = 'api-test-status success';
+    statusDiv.textContent = '✅ Success! Connected to Groq API successfully.';
+  } catch (err) {
+    statusDiv.className = 'api-test-status error';
+    statusDiv.textContent = `❌ Connection failed: ${err.message || 'Check key and internet connection'}`;
+  }
+}
+
+function saveApiKey() {
+  const input = document.getElementById('input-groq-key');
+  const modelSelect = document.getElementById('select-groq-model');
+  const statusDiv = document.getElementById('api-test-status');
+  const key = input.value.trim();
+
+  if (typeof GroqService !== 'undefined') {
+    GroqService.setApiKey(key);
+  }
+  if (typeof CONFIG !== 'undefined' && modelSelect) {
+    CONFIG.GROQ_MODEL = modelSelect.value;
+  }
+
+  updateApiStatusUI();
+  closeApiModal();
+
+  if (key) {
+    alert('✅ Groq LLM enabled! Your interview will now feature real-time, dynamic, resume & company-specific questions.');
+  }
+}
+
+function clearApiKey() {
+  if (typeof GroqService !== 'undefined') {
+    GroqService.setApiKey('');
+  }
+  const input = document.getElementById('input-groq-key');
+  if (input) input.value = '';
+  updateApiStatusUI();
+  const statusDiv = document.getElementById('api-test-status');
+  if (statusDiv) {
+    statusDiv.className = 'api-test-status testing';
+    statusDiv.textContent = 'Key removed. Switched to offline question bank.';
+    statusDiv.classList.remove('hidden');
+  }
+}
+
 /* -------- Global State -------- */
 let state = {
   selectedDomain: null,
@@ -870,8 +988,43 @@ function getNextQuestion() {
   return available[0];
 }
 
-function askNextQuestion() {
-  const q = getNextQuestion();
+async function askNextQuestion() {
+  showTypingIndicator();
+  let q = null;
+  const isLLM = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
+
+  if (isLLM) {
+    try {
+      const domain = DOMAINS.find(d => d.id === state.selectedDomain);
+      const company = COMPANIES.find(c => c.id === state.selectedCompany);
+      const generated = await GroqService.generateQuestion({
+        domain,
+        company,
+        resumeText: state.resumeText,
+        resumeSkills: state.resumeSkills,
+        resumeProjects: state.resumeProjects,
+        resumeExperience: state.resumeExperience,
+        difficulty: state.difficulty,
+        mode: state.mode,
+        askedQuestions: Array.from(state.askedQuestions),
+        previousSession: state.sessionHistory
+      });
+
+      if (generated && generated.text) {
+        q = generated;
+      }
+    } catch (err) {
+      console.warn('Groq question generation fallback to static queue:', err);
+    }
+  }
+
+  // Fallback to static queue if Groq failed or is not configured
+  if (!q) {
+    q = getNextQuestion();
+  }
+
+  hideTypingIndicator();
+
   if (!q) {
     endSession();
     return;
@@ -883,20 +1036,23 @@ function askNextQuestion() {
   const typeLabel = {
     technical: `<span class="question-tag qtag-technical">Technical</span>`,
     hr: `<span class="question-tag qtag-hr">HR / Behavioral</span>`
-  }[q.type] || '';
+  }[q.type] || `<span class="question-tag qtag-technical">Technical</span>`;
 
   const sourceLabel = q.source === 'resume'
-    ? `<span class="question-tag qtag-resume">Resume: ${q.topic || 'Skills'}</span>`
+    ? `<span class="question-tag qtag-resume">⚡ Resume: ${q.topic || 'Profile'}</span>`
     : q.source === 'company'
-    ? `<span class="question-tag qtag-company">${q.topic || 'Company'}</span>`
+    ? `<span class="question-tag qtag-company">⚡ ${q.topic || 'Company'}</span>`
+    : isLLM
+    ? `<span class="question-tag qtag-technical">⚡ Groq LLM: ${q.topic || 'Domain'}</span>`
     : `<span class="question-tag qtag-technical">${q.topic || 'Domain'}</span>`;
 
   const qNum = state.questionsAnswered + 1;
 
   addBotMessage(`
-    <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">
+    <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
       ${typeLabel}
       ${sourceLabel}
+      <span class="question-tag" style="background:rgba(255,255,255,0.06);color:var(--text-secondary);font-size:10.5px;text-transform:capitalize;">${q.difficulty || state.difficulty}</span>
     </div>
     <strong>Q${qNum}.</strong> ${q.text}
   `, 'question');
@@ -914,29 +1070,51 @@ function submitAnswer() {
   input.style.height = 'auto';
 
   addUserMessage(answer);
-  showTypingIndicator();
-
-  setTimeout(() => {
-    hideTypingIndicator();
-    processAnswer(answer);
-  }, 1200 + Math.random() * 800);
+  processAnswer(answer);
 }
 
-function processAnswer(answer) {
+async function processAnswer(answer) {
   if (!state.currentQuestion) return;
 
   const q = state.currentQuestion;
-  const evaluation = evaluateAnswer(answer, q);
+  showTypingIndicator();
+
+  let evaluation = null;
+  const isLLM = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
+
+  if (isLLM) {
+    try {
+      const domain = DOMAINS.find(d => d.id === state.selectedDomain);
+      const company = COMPANIES.find(c => c.id === state.selectedCompany);
+      evaluation = await GroqService.evaluateAnswer({
+        question: q,
+        answer: answer,
+        domain,
+        company,
+        difficulty: state.difficulty
+      });
+    } catch (err) {
+      console.warn('Groq evaluation fallback to heuristic evaluation:', err);
+    }
+  }
+
+  if (!evaluation) {
+    evaluation = evaluateAnswer(answer, q);
+  }
+
+  hideTypingIndicator();
 
   // Record history
   state.sessionHistory.push({
     question: q.text,
     answer: answer,
     score: evaluation.score,
-    type: q.type,
-    source: q.source,
+    type: q.type || 'technical',
+    source: q.source || 'domain',
     feedback: evaluation.feedback,
-    quality: evaluation.quality
+    quality: evaluation.quality,
+    strengths: evaluation.strengths || [],
+    improvements: evaluation.improvements || []
   });
 
   state.questionsAnswered++;
@@ -946,10 +1124,25 @@ function processAnswer(answer) {
   const feedbackClass = evaluation.quality === 'good' ? 'good' : evaluation.quality === 'partial' ? 'partial' : 'improve';
   const scorePillClass = evaluation.score >= 75 ? 'high' : evaluation.score >= 45 ? 'mid' : 'low';
 
+  let strengthsHtml = '';
+  if (evaluation.strengths && evaluation.strengths.length > 0) {
+    strengthsHtml = `<div style="margin-top:6px;font-size:12px;color:var(--accent);"><strong style="color:var(--accent);">✓ Strengths:</strong> ${escapeHtml(evaluation.strengths.join('; '))}</div>`;
+  }
+
+  let improvementsHtml = '';
+  if (evaluation.improvements && evaluation.improvements.length > 0) {
+    improvementsHtml = `<div style="margin-top:4px;font-size:12px;color:var(--accent2);"><strong style="color:var(--accent2);">↑ To Improve:</strong> ${escapeHtml(evaluation.improvements.join('; '))}</div>`;
+  }
+
   addBotMessage(`
-    <div class="feedback-bubble ${feedbackClass}">${evaluation.feedback}</div>
-    <div style="margin-top:8px;">
+    <div class="feedback-bubble ${feedbackClass}">
+      <div>${evaluation.feedback}</div>
+      ${strengthsHtml}
+      ${improvementsHtml}
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
       <span class="score-pill ${scorePillClass}">Score: ${evaluation.score}/100</span>
+      ${isLLM ? '<span style="font-size:11px;color:var(--text-secondary);font-weight:600;">⚡ Evaluated by Groq AI</span>' : ''}
     </div>
   `, 'feedback');
 
@@ -965,10 +1158,10 @@ function processAnswer(answer) {
     if (state.questionsAnswered < 20) {
       askNextQuestion();
     } else {
-      addBotMessage(`<strong>Great session!</strong> You have completed 20 questions. Let us review your performance.`, 'system');
+      addBotMessage(`<strong>Great session!</strong> You have completed 20 questions. Let us review your performance report.`, 'system');
       setTimeout(() => endSession(), 2000);
     }
-  }, 2500);
+  }, 2400);
 }
 
 function evaluateAnswer(answer, question) {
@@ -1214,17 +1407,47 @@ function skipQuestion() {
   setTimeout(() => askNextQuestion(), 600);
 }
 
-function getHint() {
-  if (state.currentQuestion?.hint) {
-    addBotMessage(`<strong>Hint:</strong> ${state.currentQuestion.hint}`, 'hint');
-  } else {
-    addBotMessage(`Think about the core concept, a real-world example, and any tradeoffs involved.`, 'hint');
+async function getHint() {
+  if (!state.currentQuestion) return;
+  const isLLM = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
+
+  if (state.currentQuestion.hint) {
+    addBotMessage(`<strong>💡 Hint:</strong> ${state.currentQuestion.hint}`, 'hint');
+    return;
   }
+
+  if (isLLM) {
+    showTypingIndicator();
+    try {
+      const hint = await GroqService.generateHint(state.currentQuestion.text);
+      hideTypingIndicator();
+      addBotMessage(`<strong>💡 AI Hint:</strong> ${hint}`, 'hint');
+      return;
+    } catch (e) {
+      hideTypingIndicator();
+    }
+  }
+
+  addBotMessage(`<strong>💡 Hint:</strong> Think about the core concept, real-world practical applications, and tradeoffs involved.`, 'hint');
 }
 
-function rephraseQuestion() {
+async function rephraseQuestion() {
   if (!state.currentQuestion) return;
-  addBotMessage(`<strong>Rephrased:</strong> ${state.currentQuestion.text} (Think about this from a practical implementation perspective.)`, 'question');
+  const isLLM = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
+
+  if (isLLM) {
+    showTypingIndicator();
+    try {
+      const rephrased = await GroqService.rephraseQuestion(state.currentQuestion.text);
+      hideTypingIndicator();
+      addBotMessage(`<strong>🔄 Rephrased (Groq AI):</strong> ${rephrased}`, 'question');
+      return;
+    } catch (e) {
+      hideTypingIndicator();
+    }
+  }
+
+  addBotMessage(`<strong>🔄 Rephrased:</strong> ${state.currentQuestion.text} (Think about this from an end-to-end architectural or production perspective.)`, 'question');
 }
 
 /* -------- End Session / Report -------- */
@@ -1299,6 +1522,16 @@ function generateReport() {
     const scorePill = h.score >= 75 ? 'high' : h.score >= 45 ? 'mid' : 'low';
     const typeLabel = h.type === 'technical' ? 'Technical' : 'HR';
     const sourceLabel = h.source === 'resume' ? ' / Resume' : h.source === 'company' ? ` / ${state.selectedCompany || 'Company'}` : '';
+    
+    let strengthsBadge = '';
+    if (h.strengths && h.strengths.length > 0) {
+      strengthsBadge = `<div style="margin-top:6px;font-size:12px;color:var(--accent);"><strong>✓ Strengths:</strong> ${escapeHtml(h.strengths.join('; '))}</div>`;
+    }
+    let improvementsBadge = '';
+    if (h.improvements && h.improvements.length > 0) {
+      improvementsBadge = `<div style="margin-top:4px;font-size:12px;color:var(--accent2);"><strong>↑ Key Improvements:</strong> ${escapeHtml(h.improvements.join('; '))}</div>`;
+    }
+
     qaContainer.innerHTML += `
       <div class="qa-card">
         <div class="qa-q">Q${i+1}. ${h.question}</div>
@@ -1308,6 +1541,8 @@ function generateReport() {
           <span class="score-pill ${scorePill}">${h.score}/100</span>
         </div>
         <div class="feedback-bubble ${h.quality === 'good' ? 'good' : h.quality === 'partial' ? 'partial' : 'improve'}" style="margin-top:10px;font-size:13px;">${h.feedback}</div>
+        ${strengthsBadge}
+        ${improvementsBadge}
       </div>
     `;
   });
@@ -1412,6 +1647,7 @@ function resetToHome() {
   goToStep('step-welcome');
   initDomainGrid();
   initCompanyGrid();
+  updateApiStatusUI();
   document.getElementById('btn-domain-next').disabled = true;
 }
 
@@ -1419,6 +1655,7 @@ function resetToHome() {
 document.addEventListener('DOMContentLoaded', () => {
   initDomainGrid();
   initCompanyGrid();
+  updateApiStatusUI();
 
   // Start visible with welcome step
   goToStep('step-welcome');
