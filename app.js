@@ -1034,6 +1034,13 @@ async function askNextQuestion() {
   state.askedQuestions.add(q.text);
   state.currentQuestion = q;
 
+  // Auto-correct question type if misclassified as HR
+  const textLower = (q.text || '').toLowerCase();
+  const techKeywords = ['deep learning', 'machine learning', 'neural network', 'algorithm', 'system design', 'architecture', 'database', 'sql', 'api', 'microservice', 'caching', 'closure', 'async', 'latency', 'tradeoff', 'model selection', 'python', 'react', 'code'];
+  if (q.type === 'hr' && techKeywords.some(kw => textLower.includes(kw))) {
+    q.type = 'technical';
+  }
+
   const typeLabel = {
     technical: `<span class="question-tag qtag-technical">Technical</span>`,
     hr: `<span class="question-tag qtag-hr">HR / Behavioral</span>`

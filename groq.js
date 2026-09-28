@@ -130,7 +130,7 @@ ${(resumeText || '').slice(0, 1200)}
 Current Interview Settings:
 - Domain: ${domainName}
 - Target Company: ${isCompanySpecific ? companyName : 'Industry Standard'}
-- Interview Mode: ${mode.toUpperCase()} (technical = coding/system design/concepts; hr = behavioral/STAR method/cultural; mixed = blend)
+- Interview Mode: ${mode.toUpperCase()} (technical = coding/architecture/ML algorithms/tradeoffs/system design; hr = STRICTLY behavioral soft skills using STAR method like leadership, teamwork, conflict, career; mixed = blend)
 - Target Difficulty Level: ${difficulty.toUpperCase()} (easy, medium, hard)
 
 ${candidateContext}
@@ -140,17 +140,18 @@ ${pastQuestionsList || 'None yet'}
 
 Your Task:
 Generate the NEXT interview question.
-- If resume details are present, make the question deeply personal to their actual projects, technology stack, or work experience, connecting it to ${domainName}${isCompanySpecific ? ` and how ${companyName} builds software` : ''}.
-- If ${mode} is technical, ask about real architecture, debugging, deep concepts, tradeoffs, or scale.
-- If ${mode} is hr, ask a behavioral STAR question relevant to their past roles and ${companyName}'s engineering culture.
+- STRICT CATEGORY RULES:
+  * "technical": Ask technical architecture, machine learning model choices (e.g., "When do you need deep learning vs. simpler ML?"), coding mechanics, system design, performance, or debugging tradeoffs.
+  * "hr": Ask STRICTLY behavioral soft-skill questions using STAR format (e.g., "Tell me about a time you had a conflict with a teammate", "Describe a time you failed under pressure"). NEVER ask technical design or machine learning model choices in HR mode.
+- If resume details are present, make the question deeply personal to their actual projects, technology stack, or work experience.
 - Calibrate difficulty strictly to "${difficulty}".
 
 Respond ONLY with valid JSON in this exact structure:
 {
   "text": "The exact interview question string",
   "hint": "A helpful, concise hint guiding what a strong answer should touch upon",
-  "type": "${mode === 'hr' ? 'hr' : mode === 'technical' ? 'technical' : 'technical'}",
-  "topic": "Specific Topic or Skill Name (e.g., 'React State Management' or 'Kafka Data Pipeline')",
+  "type": "${mode === 'hr' ? 'hr' : 'technical'}",
+  "topic": "Specific Topic or Skill Name (e.g., 'Model Selection' or 'React State')",
   "source": "${hasResume ? 'resume' : isCompanySpecific ? 'company' : 'domain'}",
   "difficulty": "${difficulty}",
   "keyConcepts": ["concept1", "concept2", "concept3"]
