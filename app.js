@@ -749,8 +749,12 @@ function startInterview() {
   // Update difficulty UI
   updateDifficultyUI();
 
-  // Build question queue heavily weighted on resume
-  buildQuestionQueue();
+  const isLLM = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
+
+  // Only build static question queue if LLM is NOT available (offline fallback)
+  if (!isLLM) {
+    buildQuestionQueue();
+  }
 
   // Start interview
   const messages = document.getElementById('chat-messages');
@@ -759,14 +763,38 @@ function startInterview() {
   setTimeout(() => {
     const hasResume = state.resumeText && state.resumeSkills.length > 0;
     const skillsList = state.resumeSkills.slice(0, 6).join(', ');
+    const domain = DOMAINS.find(d => d.id === state.selectedDomain);
+    const company = COMPANIES.find(c => c.id === state.selectedCompany);
 
-    addBotMessage(`
-      <strong>Welcome to your AI Mock Interview!</strong>
-      <br/><br/>
-      ${hasResume ? `I have thoroughly analyzed your resume. I detected key skills including: <strong>${skillsList}</strong>${state.resumeProjects.length > 0 ? ` and your project work` : ''}.<br/><br/><strong>Our questions will directly test your real resume background, projects, and architecture decisions</strong>, with adaptive difficulty based on how you answer.` : `We will start with foundation questions and adapt difficulty in real time.`}
-      <br/><br/>
-      Let us begin with your first question. Take your time to structure your response clearly.
-    `, 'system');
+    if (isLLM) {
+      // LLM-powered welcome message
+      addBotMessage(`
+        <strong>⚡ AI-Powered Mock Interview</strong>
+        <br/><br/>
+        Your interview is powered by <strong>Groq LLM</strong> — every question will be <strong>dynamically generated</strong> in real-time, tailored to:
+        <ul style="margin:8px 0 0 16px;line-height:1.8;">
+          ${hasResume ? `<li>Your <strong>resume</strong> — skills: <strong>${skillsList}</strong>${state.resumeProjects.length > 0 ? ', projects, and experience' : ''}</li>` : ''}
+          <li><strong>${domain?.name || 'Software Engineering'}</strong> domain expertise</li>
+          ${company ? `<li><strong>${company.name}</strong> company-specific interview style</li>` : ''}
+          <li>Adaptive <strong>${state.difficulty}</strong> difficulty that scales with your performance</li>
+        </ul>
+        <br/>
+        <em>No hardcoded question banks — every question is unique to this session.</em>
+        <br/><br/>
+        Let's begin. Take your time to structure your responses clearly.
+      `, 'system');
+    } else {
+      // Offline / static fallback welcome
+      addBotMessage(`
+        <strong>Welcome to your Mock Interview!</strong>
+        <br/><br/>
+        ${hasResume ? `I have analyzed your resume. I detected key skills including: <strong>${skillsList}</strong>${state.resumeProjects.length > 0 ? ` and your project work` : ''}.<br/><br/>Questions will be based on your resume background.` : `We will start with foundation questions and adapt difficulty in real time.`}
+        <br/><br/>
+        <em style="color:var(--accent2);">💡 Tip: Add your Groq API key (free!) in Settings to unlock dynamic, AI-generated questions personalized to your resume and target company.</em>
+        <br/><br/>
+        Let us begin with your first question.
+      `, 'system');
+    }
 
     setTimeout(() => askNextQuestion(), 1400);
   }, 600);
@@ -994,32 +1022,50 @@ async function askNextQuestion() {
   const isLLM = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
 
   if (isLLM) {
-    try {
-      const domain = DOMAINS.find(d => d.id === state.selectedDomain);
-      const company = COMPANIES.find(c => c.id === state.selectedCompany);
-      const generated = await GroqService.generateQuestion({
-        domain,
-        company,
-        resumeText: state.resumeText,
-        resumeSkills: state.resumeSkills,
-        resumeProjects: state.resumeProjects,
-        resumeExperience: state.resumeExperience,
-        difficulty: state.difficulty,
-        mode: state.mode,
-        askedQuestions: Array.from(state.askedQuestions),
-        previousSession: state.sessionHistory
-      });
+    // ===== LLM MODE: Generate every question dynamically via Groq =====
+    const MAX_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const domain = DOMAINS.find(d => d.id === state.selectedDomain);
+        const company = COMPANIES.find(c => c.id === state.selectedCompany);
+        const generated = await GroqService.generateQuestion({
+          domain,
+          company,
+          resumeText: state.resumeText,
+          resumeSkills: state.resumeSkills,
+          resumeProjects: state.resumeProjects,
+          resumeExperience: state.resumeExperience,
+          difficulty: state.difficulty,
+          mode: state.mode,
+          askedQuestions: Array.from(state.askedQuestions),
+          previousSession: state.sessionHistory
+        });
 
-      if (generated && generated.text) {
-        q = generated;
+        if (generated && generated.text) {
+          q = generated;
+          q.source = q.source || (state.resumeSkills?.length > 0 ? 'resume' : 'domain');
+          break;
+        }
+      } catch (err) {
+        console.warn(`Groq question generation attempt ${attempt + 1} failed:`, err.message);
+        if (attempt < MAX_RETRIES) {
+          // Brief delay before retry
+          await new Promise(r => setTimeout(r, 800));
+        }
       }
-    } catch (err) {
-      console.warn('Groq question generation fallback to static queue:', err);
     }
-  }
 
-  // Fallback to static queue if Groq failed or is not configured
-  if (!q) {
+    // If all LLM retries failed, show error and fall back gracefully
+    if (!q) {
+      console.error('All Groq LLM attempts failed. Falling back to static question bank for this question.');
+      // Build static queue on-demand only when LLM fails
+      if (state.questionQueue.length === 0) {
+        buildQuestionQueue();
+      }
+      q = getNextQuestion();
+    }
+  } else {
+    // ===== OFFLINE MODE: Use static question bank =====
     q = getNextQuestion();
   }
 
@@ -1038,13 +1084,20 @@ async function askNextQuestion() {
     hr: `<span class="question-tag qtag-hr">HR / Behavioral</span>`
   }[q.type] || `<span class="question-tag qtag-technical">Technical</span>`;
 
-  const sourceLabel = q.source === 'resume'
-    ? `<span class="question-tag qtag-resume">⚡ Resume: ${q.topic || 'Profile'}</span>`
-    : q.source === 'company'
-    ? `<span class="question-tag qtag-company">⚡ ${q.topic || 'Company'}</span>`
-    : isLLM
-    ? `<span class="question-tag qtag-technical">⚡ Groq LLM: ${q.topic || 'Domain'}</span>`
-    : `<span class="question-tag qtag-technical">${q.topic || 'Domain'}</span>`;
+  // Source label reflects whether this was LLM-generated or static
+  let sourceLabel;
+  if (isLLM && q.source !== 'static-fallback') {
+    // All LLM questions get the AI badge
+    const topicDisplay = q.topic || (q.source === 'resume' ? 'Resume' : q.source === 'company' ? 'Company' : 'Domain');
+    const sourceIcon = q.source === 'resume' ? '📄' : q.source === 'company' ? '🏢' : '⚡';
+    sourceLabel = `<span class="question-tag qtag-resume">${sourceIcon} AI Generated: ${topicDisplay}</span>`;
+  } else {
+    sourceLabel = q.source === 'resume'
+      ? `<span class="question-tag qtag-resume">📄 Resume: ${q.topic || 'Profile'}</span>`
+      : q.source === 'company'
+      ? `<span class="question-tag qtag-company">🏢 ${q.topic || 'Company'}</span>`
+      : `<span class="question-tag qtag-technical">${q.topic || 'Domain'}</span>`;
+  }
 
   const qNum = state.questionsAnswered + 1;
 
@@ -1053,6 +1106,7 @@ async function askNextQuestion() {
       ${typeLabel}
       ${sourceLabel}
       <span class="question-tag" style="background:rgba(255,255,255,0.06);color:var(--text-secondary);font-size:10.5px;text-transform:capitalize;">${q.difficulty || state.difficulty}</span>
+      ${isLLM ? '<span class="question-tag" style="background:rgba(212,255,0,0.1);color:var(--accent);font-size:10px;">⚡ Groq AI</span>' : ''}
     </div>
     <strong>Q${qNum}.</strong> ${q.text}
   `, 'question');
@@ -1083,21 +1137,27 @@ async function processAnswer(answer) {
   const isLLM = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
 
   if (isLLM) {
-    try {
-      const domain = DOMAINS.find(d => d.id === state.selectedDomain);
-      const company = COMPANIES.find(c => c.id === state.selectedCompany);
-      evaluation = await GroqService.evaluateAnswer({
-        question: q,
-        answer: answer,
-        domain,
-        company,
-        difficulty: state.difficulty
-      });
-    } catch (err) {
-      console.warn('Groq evaluation fallback to heuristic evaluation:', err);
+    // ===== LLM MODE: Evaluate with Groq AI (retry on failure) =====
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const domain = DOMAINS.find(d => d.id === state.selectedDomain);
+        const company = COMPANIES.find(c => c.id === state.selectedCompany);
+        evaluation = await GroqService.evaluateAnswer({
+          question: q,
+          answer: answer,
+          domain,
+          company,
+          difficulty: state.difficulty
+        });
+        if (evaluation) break;
+      } catch (err) {
+        console.warn(`Groq evaluation attempt ${attempt + 1} failed:`, err.message);
+        if (attempt === 0) await new Promise(r => setTimeout(r, 600));
+      }
     }
   }
 
+  // Heuristic fallback only if LLM is offline or all retries exhausted
   if (!evaluation) {
     evaluation = evaluateAnswer(answer, q);
   }
@@ -1258,7 +1318,11 @@ function updateDifficulty(score) {
     };
     setTimeout(() => {
       addSystemMessage(messages[state.difficulty]);
-      buildQuestionQueue();
+      // Only rebuild static queue when LLM is offline; LLM uses difficulty dynamically
+      const isLLM = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
+      if (!isLLM) {
+        buildQuestionQueue();
+      }
     }, 300);
   } else {
     updateDifficultyUI();
@@ -1411,11 +1475,7 @@ async function getHint() {
   if (!state.currentQuestion) return;
   const isLLM = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
 
-  if (state.currentQuestion.hint) {
-    addBotMessage(`<strong>💡 Hint:</strong> ${state.currentQuestion.hint}`, 'hint');
-    return;
-  }
-
+  // When LLM is active, ALWAYS generate a fresh AI hint (more relevant than static)
   if (isLLM) {
     showTypingIndicator();
     try {
@@ -1425,10 +1485,16 @@ async function getHint() {
       return;
     } catch (e) {
       hideTypingIndicator();
+      console.warn('Groq hint generation failed:', e.message);
     }
   }
 
-  addBotMessage(`<strong>💡 Hint:</strong> Think about the core concept, real-world practical applications, and tradeoffs involved.`, 'hint');
+  // Fallback: use static hint from question object, or generic
+  if (state.currentQuestion.hint) {
+    addBotMessage(`<strong>💡 Hint:</strong> ${state.currentQuestion.hint}`, 'hint');
+  } else {
+    addBotMessage(`<strong>💡 Hint:</strong> Think about the core concept, real-world practical applications, and tradeoffs involved.`, 'hint');
+  }
 }
 
 async function rephraseQuestion() {
