@@ -41,7 +41,7 @@ const GroqService = {
   /**
    * Make a chat completion request to Groq API
    */
-  async chatCompletion(messages, { temperature = 0.7, jsonMode = false, model = null } = {}) {
+  async chatCompletion(messages, { temperature = 0.7, jsonMode = false, model = null, maxTokens = null } = {}) {
     const apiKey = this.getApiKey();
     if (!apiKey) {
       throw new Error('Groq API Key is not configured.');
@@ -52,7 +52,7 @@ const GroqService = {
       model: selectedModel,
       messages: messages,
       temperature: temperature,
-      max_tokens: 1024,
+      max_tokens: maxTokens || 1024,
     };
 
     if (jsonMode) {
@@ -266,6 +266,48 @@ Return ONLY the hint sentence.`;
     ], { temperature: 0.5 });
 
     return result.trim().replace(/^["']|["']$/g, '');
+  },
+
+  /**
+   * Transcribe a resume photo or screenshot using Groq Multimodal Vision
+   * Supports iPhone photos, camera captures, PNG, JPG, JPEG, WebP
+   */
+  async extractResumeFromImage(base64DataUrl) {
+    const prompt = `You are an expert OCR resume parser. Carefully read and extract all text from this resume image.
+Preserve all headings, bullet points, technical skills, job titles, companies, dates, projects, education, and contact details.
+Output ONLY the clean, plain text of the resume exactly as written. Do NOT wrap in markdown code fences or add conversational comments.`;
+
+    const messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: base64DataUrl } }
+        ]
+      }
+    ];
+
+    // Try Groq Vision models
+    const visionModels = ['llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview'];
+    let lastError = null;
+
+    for (const vModel of visionModels) {
+      try {
+        const text = await this.chatCompletion(messages, {
+          model: vModel,
+          temperature: 0.1,
+          maxTokens: 2048
+        });
+        if (text && text.trim().length > 30) {
+          return text.trim();
+        }
+      } catch (err) {
+        lastError = err;
+        console.warn(`Vision model ${vModel} failed:`, err.message);
+      }
+    }
+
+    throw lastError || new Error('Could not extract text from image');
   }
 };
 

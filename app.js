@@ -448,27 +448,53 @@ async function processResumeFile(file) {
   const dropText = document.getElementById('drop-main-text');
   const dropSub = document.getElementById('drop-sub-text');
   
-  const originalMain = dropText.textContent;
-  const originalSub = dropSub.textContent;
-  
   dropText.textContent = `Reading ${file.name}...`;
   dropSub.textContent = 'Extracting and parsing text...';
 
   try {
     let extractedText = '';
-    const ext = file.name.split('.').pop().toLowerCase();
+    const nameLower = (file.name || '').toLowerCase();
+    const ext = nameLower.split('.').pop();
+    const mime = (file.type || '').toLowerCase();
 
-    if (ext === 'pdf') {
+    // 1. PDF Document
+    if (ext === 'pdf' || mime === 'application/pdf') {
+      dropSub.textContent = 'Extracting PDF text...';
       extractedText = await parsePdfFile(file);
-    } else if (ext === 'docx' || ext === 'doc') {
+    } 
+    // 2. Modern Word (.docx)
+    else if (ext === 'docx' || mime.includes('wordprocessingml') || mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      dropSub.textContent = 'Parsing Word (.docx) document...';
       extractedText = await parseDocxFile(file);
-    } else {
-      // Plain text / MD / RTF
+    } 
+    // 3. Legacy Word (.doc)
+    else if (ext === 'doc' || mime === 'application/msword') {
+      dropSub.textContent = 'Parsing Word (.doc) binary format...';
+      extractedText = await parseDocBinaryFile(file);
+    } 
+    // 4. Rich Text Format (.rtf)
+    else if (ext === 'rtf' || mime === 'application/rtf' || mime === 'text/rtf') {
+      dropSub.textContent = 'Parsing RTF document...';
+      extractedText = await parseRtfFile(file);
+    } 
+    // 5. Photos / Camera captures / Screenshots (iPhone, Android, Desktop)
+    else if (mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'heic', 'bmp'].includes(ext)) {
+      dropText.textContent = `Analyzing image ${file.name}...`;
+      dropSub.textContent = 'Using AI Vision to transcribe resume text...';
+      extractedText = await parseImageFile(file);
+    } 
+    // 6. Apple Pages (.pages)
+    else if (ext === 'pages' || mime.includes('pages')) {
+      dropSub.textContent = 'Parsing Apple Pages document...';
+      extractedText = await parsePagesFile(file);
+    } 
+    // 7. Plain Text / Markdown / Fallback
+    else {
       extractedText = await parseTextFile(file);
     }
 
     if (!extractedText || extractedText.trim().length < 20) {
-      // Fallback text reader
+      // Secondary fallback
       extractedText = await parseTextFile(file);
     }
 
@@ -476,21 +502,23 @@ async function processResumeFile(file) {
     showResumePreview(extractedText, file.name);
 
     dropText.textContent = `Uploaded: ${file.name}`;
-    dropSub.textContent = `${(file.size / 1024).toFixed(1)} KB — Parsed successfully`;
+    dropSub.textContent = `${(file.size / 1024).toFixed(1)} KB — Parsed successfully (${state.resumeSkills.length} skills identified)`;
 
   } catch (err) {
     console.error('File parsing error:', err);
-    // Fallback plain text read
     try {
       const fallbackText = await parseTextFile(file);
-      document.getElementById('resume-text').value = fallbackText;
-      showResumePreview(fallbackText, file.name);
-      dropText.textContent = `Uploaded: ${file.name}`;
-      dropSub.textContent = 'Text extracted';
-    } catch (e) {
-      dropText.textContent = 'Could not parse file automatically';
-      dropSub.textContent = 'Please paste your resume text below directly';
-    }
+      if (fallbackText && fallbackText.trim().length > 30) {
+        document.getElementById('resume-text').value = fallbackText;
+        showResumePreview(fallbackText, file.name);
+        dropText.textContent = `Uploaded: ${file.name}`;
+        dropSub.textContent = 'Text extracted';
+        return;
+      }
+    } catch (e) {}
+
+    dropText.textContent = 'Could not parse file automatically';
+    dropSub.textContent = err.message || 'Please paste your resume text below directly';
   }
 }
 
@@ -501,6 +529,181 @@ function parseTextFile(file) {
     reader.onerror = reject;
     reader.readAsText(file);
   });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result || '');
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Modern Word (.docx) parser with Mammoth.js + JSZip XML fallback
+ */
+async function parseDocxFile(file) {
+  const arrayBuffer = await file.arrayBuffer();
+
+  // Primary: Mammoth.js
+  if (window.mammoth) {
+    try {
+      const result = await window.mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+      if (result && result.value && result.value.trim().length > 20) {
+        return result.value.trim();
+      }
+    } catch (e) {
+      console.warn('Mammoth docx parse warning:', e);
+    }
+  }
+
+  // Secondary Fallback: JSZip parser for word/document.xml
+  if (window.JSZip) {
+    try {
+      const zip = await window.JSZip.loadAsync(arrayBuffer);
+      const docXmlFile = zip.file('word/document.xml');
+      if (docXmlFile) {
+        const xmlText = await docXmlFile.async('string');
+        const textRuns = xmlText.match(/<w:t[^>]*>(.*?)<\/w:t>/g) || [];
+        const cleanText = textRuns
+          .map(tag => tag.replace(/<\/?w:t[^>]*>/g, ''))
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (cleanText.length > 20) return cleanText;
+      }
+    } catch (e) {
+      console.warn('JSZip docx fallback warning:', e);
+    }
+  }
+
+  return parseTextFile(file);
+}
+
+/**
+ * Legacy Word (.doc) 97-2003 binary format text run extractor
+ */
+async function parseDocBinaryFile(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+
+  // Scan for 16-bit UTF-16LE text runs (standard in Word 97-2003 documents)
+  let utf16Strings = [];
+  let currentRun = '';
+  for (let i = 0; i < bytes.length - 1; i += 2) {
+    const code = bytes[i] | (bytes[i + 1] << 8);
+    if ((code >= 32 && code <= 126) || code === 10 || code === 13) {
+      currentRun += String.fromCharCode(code);
+    } else {
+      if (currentRun.trim().length >= 4) {
+        utf16Strings.push(currentRun.trim());
+      }
+      currentRun = '';
+    }
+  }
+  if (currentRun.trim().length >= 4) utf16Strings.push(currentRun.trim());
+
+  // Also scan for 8-bit ASCII strings
+  let asciiStrings = [];
+  let currentAscii = '';
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    if ((b >= 32 && b <= 126) || b === 10 || b === 13) {
+      currentAscii += String.fromCharCode(b);
+    } else {
+      if (currentAscii.trim().length >= 4) {
+        asciiStrings.push(currentAscii.trim());
+      }
+      currentAscii = '';
+    }
+  }
+  if (currentAscii.trim().length >= 4) asciiStrings.push(currentAscii.trim());
+
+  // Pick the richest text pool
+  const utf16Total = utf16Strings.join(' ');
+  const asciiTotal = asciiStrings.join(' ');
+  const bestCandidate = utf16Total.length >= asciiTotal.length ? utf16Total : asciiTotal;
+
+  // Filter out binary metadata noise (table tags, font names, system headers)
+  const cleaned = bestCandidate
+    .replace(/[^\x20-\x7E\n]/g, ' ')
+    .replace(/\b(Normal|Default Paragraph Font|Table Grid|Calibri|Times New Roman|Arial|Body Text)\b/gi, '')
+    .replace(/\s{2,}/g, '\n')
+    .trim();
+
+  if (cleaned.length > 30) {
+    return cleaned;
+  }
+
+  return parseTextFile(file);
+}
+
+/**
+ * Rich Text Format (.rtf) parser
+ */
+async function parseRtfFile(file) {
+  const rawRtf = await parseTextFile(file);
+  if (!rawRtf || !rawRtf.includes('{\\rtf')) {
+    return rawRtf;
+  }
+
+  let text = rawRtf
+    .replace(/\\par[d]?/g, '\n')
+    .replace(/\\line/g, '\n')
+    .replace(/\\tab/g, '\t')
+    .replace(/\\'[0-9a-fA-F]{2}/g, hex => String.fromCharCode(parseInt(hex.slice(2), 16)))
+    .replace(/\\u([0-9]{1,5})\??/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/{\\[^{}]+}/g, '')
+    .replace(/\\[a-zA-Z0-9]+[ ]?/g, '')
+    .replace(/[{}]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return text.length > 20 ? text : rawRtf;
+}
+
+/**
+ * Image parser using Groq Multimodal Vision (for iPhone Camera & Photos)
+ */
+async function parseImageFile(file) {
+  const dataUrl = await readFileAsDataUrl(file);
+
+  const hasKey = typeof GroqService !== 'undefined' && GroqService.hasApiKey();
+  if (hasKey) {
+    try {
+      const transcribed = await GroqService.extractResumeFromImage(dataUrl);
+      if (transcribed && transcribed.length > 30) {
+        return transcribed;
+      }
+    } catch (err) {
+      console.warn('Groq image OCR error:', err);
+      throw new Error(`AI Vision Error: ${err.message || 'Could not transcribe image.'}`);
+    }
+  }
+
+  throw new Error('To parse resume photos or screenshots, please enter your Groq API key in Settings (free!).');
+}
+
+/**
+ * Apple Pages (.pages) parser
+ */
+async function parsePagesFile(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  if (window.JSZip) {
+    try {
+      const zip = await window.JSZip.loadAsync(arrayBuffer);
+      // Apple Pages sometimes embeds a PDF preview in QuickLook
+      const previewPdf = zip.file('QuickLook/Preview.pdf');
+      if (previewPdf) {
+        const pdfBuf = await previewPdf.async('arraybuffer');
+        return await parsePdfFile({ arrayBuffer: () => Promise.resolve(pdfBuf) });
+      }
+    } catch (e) {
+      console.warn('Pages QuickLook extraction warning:', e);
+    }
+  }
+  return parseTextFile(file);
 }
 
 async function parsePdfFile(file) {
@@ -540,21 +743,6 @@ async function parsePdfFile(file) {
   // Extract readable words of length >= 3
   const words = rawStr.match(/[A-Za-z0-9+#.\-_/]{2,}/g) || [];
   return words.join(' ');
-}
-
-async function parseDocxFile(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  if (window.mammoth) {
-    try {
-      const result = await window.mammoth.extractRawText({ arrayBuffer: arrayBuffer });
-      if (result && result.value && result.value.trim().length > 20) {
-        return result.value;
-      }
-    } catch (e) {
-      console.warn('Mammoth docx parse warning:', e);
-    }
-  }
-  return parseTextFile(file);
 }
 
 function showResumePreview(text, fileName = '') {

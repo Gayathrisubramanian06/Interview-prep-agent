@@ -133,11 +133,10 @@
         </div>
       </div>
       <h2 class="step-title">Upload Your <span class="accent">Resume</span></h2>
-      <p class="step-subtitle">Upload your PDF/DOCX or paste text to generate personalized, resume-targeted questions</p>
+      <p class="step-subtitle">Upload Word (.docx / .doc), PDF, iPhone photo / scan, or paste text to generate personalized questions</p>
       
-      <div class="resume-drop-zone" id="resume-drop-zone"
-           ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)"
-           onclick="document.getElementById('resume-file-input').click()">
+      <label class="resume-drop-zone" id="resume-drop-zone" for="resume-file-input"
+             ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
         <div class="drop-icon">
           <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 6h18l10 10v26a2 2 0 01-2 2H12a2 2 0 01-2-2V8a2 2 0 012-2z" stroke="#d4ff00" stroke-width="2" fill="none"/>
@@ -146,10 +145,29 @@
             <path d="M18 38h12" stroke="#d4ff00" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </div>
-        <p class="drop-text" id="drop-main-text">Drag &amp; drop your resume here, or click to browse</p>
-        <p class="drop-sub" id="drop-sub-text">Supports PDF, DOCX, TXT, MD</p>
-        <span class="btn-upload" onclick="event.stopPropagation(); document.getElementById('resume-file-input').click()">Browse File</span>
-        <input type="file" id="resume-file-input" accept=".pdf,.docx,.doc,.txt,.md,.rtf" onchange="handleFileSelect(event)" style="display:none;" />
+        <p class="drop-text" id="drop-main-text">Tap or drop your resume here</p>
+        <p class="drop-sub" id="drop-sub-text">Supported: Word (.docx, .doc), PDF, iPhone Photos / Camera, RTF, TXT</p>
+        <div class="drop-formats">
+          <span class="format-pill">📝 Word (.docx &amp; .doc)</span>
+          <span class="format-pill">📄 PDF Document</span>
+          <span class="format-pill">📱 iPhone Photo / Scan</span>
+          <span class="format-pill">📋 RTF / Text</span>
+        </div>
+        <span class="btn-upload">Browse / Choose File</span>
+        <input type="file" id="resume-file-input"
+               accept=".pdf,.docx,.doc,.txt,.rtf,.pages,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.apple.pages,text/plain,application/rtf,text/rtf,image/png,image/jpeg,image/webp,image/*"
+               onchange="handleFileSelect(event)" />
+      </label>
+
+      <div class="quick-upload-actions">
+        <label class="btn-camera" for="resume-camera-input" title="Take a photo of your paper resume with iPhone / mobile camera">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+            <path d="M3 7a2 2 0 012-2h1.5l1.2-1.6A1 1 0 018.5 3h3a1 1 0 01.8.4L13.5 5H15a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <circle cx="10" cy="11.5" r="3.2" stroke="currentColor" stroke-width="1.6"/>
+          </svg>
+          Scan with Camera (iPhone / Mobile)
+        </label>
+        <input type="file" id="resume-camera-input" accept="image/*" capture="environment" style="display:none;" onchange="handleFileSelect(event)" />
       </div>
 
       <div class="sample-resumes-wrap">
@@ -405,9 +423,10 @@
     </div>
   </div>
 
-  <!-- Client-side PDF and DOCX parsers -->
+  <!-- Client-side PDF, Word (DOCX/DOC), and ZIP parsers -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="config.js"></script>
   <script src="env.js"></script>
   <script src="api-key.js"></script>
