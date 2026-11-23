@@ -674,6 +674,34 @@ body {
   align-items: center;
   gap: 8px;
 }
+.skills-count-badge {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 700;
+  background: rgba(212, 255, 0, 0.1);
+  border: 1px solid rgba(212, 255, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+.btn-clear-resume {
+  background: rgba(255, 92, 62, 0.12);
+  border: 1px solid rgba(255, 92, 62, 0.35);
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-clear-resume:hover {
+  background: var(--danger);
+  color: #fff;
+  transform: translateY(-1px);
+}
 .resume-preview-section {
   margin-top: 10px;
 }
@@ -914,7 +942,7 @@ body {
 .btn-sidebar-action {
   margin-top: auto;
   width: 100%;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
+  background: linear-gradient(135deg, rgba(255, 235, 100, 0.08), rgba(20, 18, 9, 0.95));
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   padding: 12px;
@@ -958,7 +986,7 @@ body {
   gap: 14px;
   padding: 16px 24px;
   border-bottom: 1px solid var(--glass-border);
-  background: rgba(13,20,34,0.8);
+  background: rgba(16, 14, 9, 0.88);
   backdrop-filter: blur(20px);
   flex-shrink: 0;
 }
@@ -1118,7 +1146,7 @@ body {
   border-radius: 50px;
   font-size: 11px;
   font-weight: 700;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1126,6 +1154,53 @@ body {
 .qtag-hr        { background: rgba(255,184,48,0.15); color: var(--accent2); border: 1px solid rgba(255,184,48,0.3); }
 .qtag-resume    { background: rgba(170,255,46,0.15); color: var(--accent3); border: 1px solid rgba(170,255,46,0.3); }
 .qtag-company   { background: rgba(255,184,48,0.15); color: var(--accent2); border: 1px solid rgba(255,184,48,0.3); }
+.qtag-diff      { background: rgba(255, 255, 255, 0.06); color: var(--text-secondary); border: 1px solid var(--glass-border); text-transform: capitalize; }
+.qtag-ai        { background: rgba(212, 255, 0, 0.12); color: var(--accent); border: 1px solid rgba(212, 255, 0, 0.35); }
+
+/* Structured Question Card */
+.question-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(215, 190, 60, 0.16);
+}
+.question-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.q-badge {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0c0b08;
+  background: var(--accent);
+  padding: 3px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 0 10px rgba(212, 255, 0, 0.35);
+}
+.q-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.question-body {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.message.bot.msg-question .msg-bubble {
+  background: linear-gradient(135deg, rgba(255, 235, 100, 0.05), rgba(20, 18, 9, 0.85));
+  border: 1.5px solid rgba(212, 255, 0, 0.28);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(212, 255, 0, 0.05);
+}
 
 /* Feedback bubble */
 .feedback-bubble {
@@ -1193,7 +1268,7 @@ body {
 .chat-input-area {
   padding: 16px 24px;
   border-top: 1px solid var(--glass-border);
-  background: rgba(13,20,34,0.9);
+  background: rgba(16, 14, 9, 0.92);
   backdrop-filter: blur(20px);
   flex-shrink: 0;
 }
@@ -1246,19 +1321,32 @@ body {
 .input-hints {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   margin-top: 10px;
   flex-wrap: wrap;
 }
 .hint-btn {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
   transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.hint-btn:hover { color: var(--accent); background: rgba(212,255,0,0.08); }
+.hint-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(212,255,0,0.08);
+  transform: translateY(-1px);
+}
+#hint-skip:hover { color: var(--danger); border-color: var(--danger); background: rgba(255, 92, 62, 0.1); }
+#hint-hint:hover { color: var(--accent2); border-color: var(--accent2); background: rgba(255, 184, 48, 0.1); }
+#hint-rephrase:hover { color: var(--accent3); border-color: var(--accent3); background: rgba(170, 255, 46, 0.1); }
 
 .input-tip {
   margin-left: auto;

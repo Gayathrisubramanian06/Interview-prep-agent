@@ -745,6 +745,25 @@ async function parsePdfFile(file) {
   return words.join(' ');
 }
 
+function clearResume() {
+  state.resumeText = '';
+  state.resumeSkills = [];
+  state.resumeProjects = [];
+  state.resumeExperience = [];
+  const textEl = document.getElementById('resume-text');
+  if (textEl) textEl.value = '';
+  const fileInput = document.getElementById('resume-file-input');
+  if (fileInput) fileInput.value = '';
+  const camInput = document.getElementById('resume-camera-input');
+  if (camInput) camInput.value = '';
+  const preview = document.getElementById('resume-preview');
+  if (preview) preview.classList.add('hidden');
+  const dropText = document.getElementById('drop-main-text');
+  if (dropText) dropText.textContent = 'Tap or drop your resume here';
+  const dropSub = document.getElementById('drop-sub-text');
+  if (dropSub) dropSub.textContent = 'Supported: Word (.docx, .doc), PDF, iPhone Photos / Camera, RTF, TXT';
+}
+
 function showResumePreview(text, fileName = '') {
   const preview = document.getElementById('resume-preview');
   preview.classList.remove('hidden');
@@ -782,7 +801,10 @@ function showResumePreview(text, fileName = '') {
         <svg viewBox="0 0 16 16" fill="none" width="16" height="16"><path d="M13.5 4.5l-7 7L3 8" stroke="#d4ff00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         ${fileName ? `Resume Ready: ${escapeHtml(fileName)}` : 'Resume Parsed &amp; Questions Targeted'}
       </span>
-      <span style="font-size:11px;color:var(--accent);font-weight:700;">${skills.length} skills identified</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="skills-count-badge">${skills.length} skills identified</span>
+        <button type="button" class="btn-clear-resume" onclick="clearResume()" title="Clear and re-upload resume">✕ Clear</button>
+      </div>
     </div>
     <div class="resume-preview-label">Technical Skills Found</div>
     ${skillsHtml}
@@ -1064,13 +1086,20 @@ async function askNextQuestion() {
   const qNum = state.questionsAnswered + 1;
 
   addBotMessage(`
-    <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-      ${typeLabel}
-      ${sourceLabel}
-      <span class="question-tag" style="background:rgba(255,255,255,0.06);color:var(--text-secondary);font-size:10.5px;text-transform:capitalize;">${q.difficulty || state.difficulty}</span>
-      <span class="question-tag" style="background:rgba(212,255,0,0.1);color:var(--accent);font-size:10px;">⚡ Groq AI</span>
+    <div class="question-header">
+      <div class="question-badge-wrap">
+        <span class="q-badge">Question ${qNum}</span>
+      </div>
+      <div class="q-tags">
+        ${typeLabel}
+        ${sourceLabel}
+        <span class="question-tag qtag-diff">${q.difficulty || state.difficulty}</span>
+        <span class="question-tag qtag-ai">⚡ Groq LLM</span>
+      </div>
     </div>
-    <strong>Q${qNum}.</strong> ${q.text}
+    <div class="question-body">
+      ${escapeHtml(q.text)}
+    </div>
   `, 'question');
 
   updateStats();
@@ -1306,7 +1335,7 @@ function updateDifficultyUI() {
 function addBotMessage(html, type = '') {
   const messages = document.getElementById('chat-messages');
   const div = document.createElement('div');
-  div.className = 'message bot';
+  div.className = 'message bot' + (type ? ` msg-${type}` : '');
   div.innerHTML = `
     <div class="msg-avatar">
       <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><rect x="3" y="6" width="18" height="14" rx="3" stroke="#d4ff00" stroke-width="1.8"/><circle cx="8.5" cy="12" r="1.5" fill="#d4ff00"/><circle cx="15.5" cy="12" r="1.5" fill="#d4ff00"/><path d="M8.5 16q3.5 2.5 7 0" stroke="#d4ff00" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
