@@ -22,7 +22,6 @@
       env[key] = value;
     });
 
-    // Apply API key
     if (env.GROQ_API_KEY && env.GROQ_API_KEY !== 'your_groq_api_key_here' && env.GROQ_API_KEY.startsWith('gsk_')) {
       window.GROQ_API_KEY = env.GROQ_API_KEY;
       if (typeof GroqService !== 'undefined') {

@@ -10,7 +10,6 @@ const CONFIG = {
   MAX_RETRIES: 2
 };
 
-// Export to window
 if (typeof window !== 'undefined') {
   window.CONFIG = CONFIG;
 }
